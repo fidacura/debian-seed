@@ -236,8 +236,10 @@ COMMIT
 :POSTROUTING ACCEPT [0:0]
 COMMIT
 ```
+```console  
 $ sudo iptables-restore -t /etc/iptables/rules.v4
 $ sudo nano /etc/iptables/rules.v6
+```
 ```console  
 *filter
 :INPUT DROP [0:0]
@@ -271,10 +273,12 @@ COMMIT
 :POSTROUTING DROP [0:0]
 COMMIT
 ```
+```console
 $ sudo ip6tables-restore -t /etc/iptables/rules.v6
 $ sudo service netfilter-persistent reload
 $ sudo iptables -S
 $ sudo ip6tables -S
+```
 
 
 ### Lynis
@@ -390,13 +394,20 @@ $ sudo chmod -R 755 /var/www
 
 Nginx folder structure.
 ```console
-$ mkdir -p /var/www/domain.com/public_html/
-$ touch /var/www/domain.com/public_html/index.html
+$ sudo mkdir -p /var/www/your_domain/html
 ```
-
-NGINX config for http:
 ```console
-$ touch /etc/nginx/conf.d/domain.com.conf
+$ sudo chown -R $USER:$USER /var/www/your_domain/html
+$ sudo chmod -R 755 /var/www/your_domain
+$ sudo chmod -R 755 /var/www/your_domain
+```
+sample index.html
+```console
+$ nano /var/www/your_domain/html/index.html
+```
+your_domain config default config file
+```console
+$ sudo nano /etc/nginx/sites-available/your_domain
 ```
 ```nginx
 server {
@@ -405,11 +416,39 @@ server {
     server_name    domain.com www.domain.com;
     root           /var/www/domain.com;
     index          index.html;
+    
+    location / {
+      try_files $uri $uri/ =404;
+    }
 
     gzip             on;
     gzip_comp_level  3;
     gzip_types       text/plain text/css application/javascript image/*;
 }
+```
+enable server block
+```console
+$ sudo ln -s /etc/nginx/sites-available/your_domain /etc/nginx/sites-enabled/
+```
+safeguard for hash bucket memory
+```console
+$ sudo nano /etc/nginx/nginx.conf
+```
+```nginx
+...
+http {
+    ...
+    server_names_hash_bucket_size 64;
+    ...
+}
+...
+```
+nginx verification
+```console
+$ sudo nginx -t
+```
+```console
+$ sudo systemctl restart nginx
 ```
 
 ## Node and PM2
