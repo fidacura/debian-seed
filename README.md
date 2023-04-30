@@ -160,72 +160,121 @@ $ sudo apt install chkrootkit
 Always iptables: Minimal configuration; Easygoing; Effective.
 ```console
 $ sudo iptables -L
-$ touch ~/config/iptables.sh
+$ sudo apt install iptables-persistent
+$ sudo nano /etc/iptables/rules.v4
 ```
 iptables file [ [download here](https://github.com/fidacura/Debian9000//) ]:
 
 ```console  
-#!/bin/bash
+*filter
+# Allow all outgoing, but drop incoming and forwarding packets by default
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
 
-# Forget old rules
-iptables -F
-iptables -X
-iptables -Z
+# Custom per-protocol chains
+:UDP - [0:0]
+:TCP - [0:0]
+:ICMP - [0:0]
 
-# Default policy: drop
-iptables -P INPUT DROP
-iptables -P OUTPUT ACCEPT
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
+# Acceptable UDP traffic
 
-# Allow loopback and reject traffic to localhost that does not originate from lo0
-iptables -A INPUT -i lo -j ACCEPT
-iptables -A INPUT ! -i lo -s 127.0.0.0/8 -j REJECT
-iptables -A OUTPUT -o lo -j ACCEPT
+# Acceptable TCP traffic
+-A TCP -p tcp --dport 80 -j ACCEPT
+-A TCP -p tcp --dport 443 -j ACCEPT
+-A TCP -p tcp --dport 22 -j ACCEPT
+
+# Acceptable ICMP traffic
+
+# Boilerplate acceptance policy
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
 
 # Drop invalid packets
-iptables -A INPUT -m state --state INVALID -j DROP
-iptables -A OUTPUT -m state --state INVALID -j DROP
-iptables -A FORWARD -m state --state INVALID -j DROP
+-A INPUT -m conntrack --ctstate INVALID -j DROP
 
-# Allow ping and icmp packets
-iptables -A INPUT -p icmp -m state --state NEW --icmp-type 8 -j ACCEPT
+# Pass traffic to protocol-specific chains
+## Only allow new connections (established and related should already be handled)
+## For TCP, additionally only allow new SYN packets since that is the only valid
+## method for establishing a new TCP connection
+-A INPUT -p udp -m conntrack --ctstate NEW -j UDP
+-A INPUT -p tcp --syn -m conntrack --ctstate NEW -j TCP
+-A INPUT -p icmp -m conntrack --ctstate NEW -j ICMP
 
-# Allow established and related packets already seen
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+# Reject anything that's fallen through to this point
+## Try to be protocol-specific w/ rejection message
+-A INPUT -p udp -j REJECT --reject-with icmp-port-unreachable
+-A INPUT -p tcp -j REJECT --reject-with tcp-reset
+-A INPUT -j REJECT --reject-with icmp-proto-unreachable
 
-# Input chain
-iptables -A INPUT -p tcp --dport 80 -m state --state NEW -j ACCEPT
-iptables -A INPUT -p tcp --dport 443 -m state --state NEW -j ACCEPT
-iptables -A INPUT -p tcp --dport 66333 -m state --state NEW -j ACCEPT
+# Commit the changes
+COMMIT
 
-# apt-get permissions
-iptables -A OUTPUT -p tcp -m tcp --dport 53 -m comment --comment "DNS-TCP" -j ACCEPT
-iptables -A OUTPUT -p udp -m udp --dport 53 -m comment --comment "DNS-UDP" -j ACCEPT
-iptables -A OUTPUT -p tcp -m tcp --dport 80 -m comment --comment "HTTP" -j ACCEPT
-iptables -A OUTPUT -p tcp -m tcp --dport 443 -m comment --comment "HTTPS" -j ACCEPT
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+COMMIT
+
+*security
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+
+*mangle
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+COMMIT
 ```
-iptables save and execute:
-```console
-$ bash ~/config/iptables.sh
-$ sudo iptables -L -v
+$ sudo iptables-restore -t /etc/iptables/rules.v4
+$ sudo nano /etc/iptables/rules.v6
+```console  
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+COMMIT
+
+*raw
+:PREROUTING DROP [0:0]
+:OUTPUT DROP [0:0]
+COMMIT
+
+*nat
+:PREROUTING DROP [0:0]
+:INPUT DROP [0:0]
+:OUTPUT DROP [0:0]
+:POSTROUTING DROP [0:0]
+COMMIT
+
+*security
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+COMMIT
+
+*mangle
+:PREROUTING DROP [0:0]
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+:POSTROUTING DROP [0:0]
+COMMIT
 ```
-iptables persistency:
-```console
-$ sudo iptables-save > /etc/iptables.rules
-$ sudo touch /etc/network/if-pre-up.d/iptablesload
-```
-File: /etc/network/if-pre-up.d/iptablesload
-```bash
-#!/bin/sh
-iptables-restore < /etc/iptables.rules
-exit 0
-```
-Make iptables file executable:
-```console
-$ sudo chmod +x /etc/network/if-pre-up.d/iptablesload
-```
+$ sudo ip6tables-restore -t /etc/iptables/rules.v6
+$ sudo service netfilter-persistent reload
+$ sudo iptables -S
+$ sudo ip6tables -S
 
 
 ### Lynis
