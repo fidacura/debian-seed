@@ -420,16 +420,14 @@ server {
     # Security Headers
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header Content-Security-Policy "
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval';
-        style-src 'self' 'unsafe-inline';
-        img-src 'self' data:;
-        font-src 'self' data:;
-        connect-src 'self';
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'self';
+      default-src 'none';
+      script-src 'self' 'strict-dynamic' 'nonce-RANDOM';
+      style-src 'self';
+      img-src 'self' data:;
+      object-src 'none';
+      base-uri 'none';
+      form-action 'self';
+      frame-ancestors 'self';
     " always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
