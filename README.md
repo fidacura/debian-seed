@@ -416,7 +416,29 @@ server {
     server_name    domain.com www.domain.com;
     root           /var/www/domain.com;
     index          index.html;
-    
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Content-Security-Policy "
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data:;
+        font-src 'self' data:;
+        connect-src 'self';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'self';
+    " always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Permissions-Policy "geolocation=(), microphone=()" always;
+
+    # Hide Nginx version number
+    server_tokens off;
+
     location / {
       try_files $uri $uri/ =404;
     }
