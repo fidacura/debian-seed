@@ -129,55 +129,76 @@ $ cp /etc/fail2ban/fail2ban.conf /etc/fail2ban/fail2ban.local
 $ cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 ```
 
-File /etc/fail2ban/jail.local:
+Lets configure jail.local with our optimized settings:
+
+$ sudo nano /etc/fail2ban/jail.local
 
 ```console
 [DEFAULT]
-ignoreip = 127.0.0.1/8
-bantime = 3600
-findtime = 600
-maxretry = 3
+# Base settings with progressive banning
+bantime  = 24h        # Initial ban duration
+findtime = 15m        # Detection window
+maxretry = 2         # Failures allowed before ban
+
+# Progressive ban system for repeat offenders
+bantime.increment = true
+bantime.multipliers = 1 3 6 12 24 48
+bantime.maxtime = 4w
+bantime.factor = 1
+
+# Basic security settings
+ignoreip = 127.0.0.1/8 ::1
 backend = auto
 usedns = warn
 banaction = iptables-multiport
 protocol = tcp
 chain = INPUT
-action_ = %(banaction)s[name=%(__name__)s, port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
-action_mw = %(action_)s
-action_mwl = %(action_)s
 
-[ssh]
-enabled  = true
-port     = ssh
-filter   = sshd
-logpath  = /var/log/auth.log
-maxretry = 3
-bantime = 86400
-
-[nginx-http-auth]
+[sshd]
 enabled = true
-filter = nginx-http-auth
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 2
+findtime = 10m
+bantime = 48h
+
+[nginx-badhosts]
+enabled = true
 port = http,https
+filter = nginx-badhosts
 logpath = /var/log/nginx/error.log
-
-[nginx-botsearch]
-enabled = true
-filter = nginx-botsearch
-port = http,https
-logpath = /var/log/nginx/access.log
-
-[nginx-badbots]
-enabled = true
-filter = nginx-badbots
-port = http,https
-logpath = /var/log/nginx/access.log
-
-[nginx-noproxy]
-enabled = true
-filter = nginx-noproxy
-port = http,https
-logpath = /var/log/nginx/access.log
+maxretry = 3
+findtime = 15m
+bantime = 24h
 ```
+
+Then create a custom filter for nginx SSL issues:
+
+$ sudo nano /etc/fail2ban/filter.d/nginx-badhosts.conf
+
+```console
+[Definition]
+failregex = SSL_do_handshake\(\) failed .* client: <HOST>
+ignoreregex =
+```
+
+Adding a verification section:
+$ sudo systemctl restart fail2ban
+$ sudo systemctl status fail2ban
+$ sudo fail2ban-client status
+$ sudo fail2ban-client status sshd
+$ sudo fail2ban-client status nginx-badhosts
+
+Test the nginx filter against logs:
+$ sudo fail2ban-regex /var/log/nginx/error.log /etc/fail2ban/filter.d/nginx-badhosts.conf
+
+Monitor fail2ban activity:
+$ sudo tail -f /var/log/fail2ban.log
+
+Check currently banned IPs:
+$ sudo fail2ban-client get sshd banned
+$ sudo fail2ban-client get nginx-badhosts banned
 
 ### Remove Unused Network-Facing Services
 
