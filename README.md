@@ -1,18 +1,54 @@
-# Debian9000
+# debian-seed
 
-An opinionated setup process for "all-things" Debian VPS configuration from scratch.
+A structured guide to setting up and maintaining a Debian VPS—secure, robust, and production-ready with monitoring.
 
-1: Basic server configuration for all instances.
+## Structure & Features
 
-2: Server hardening for all instances.
+1. **Basic Server Configuration**
 
-3: Web server configurations [ Apache / Nginx / Node + PM2 ]
+   - System initialization
+   - User management
+   - Essential utilities
 
-4: Server maintenance
+2. **Security Hardening**
 
-5: Data backups
+   - SSH hardening
+   - Firewall configuration
+   - Intrusion prevention
+   - Rootkit protection
 
-6: Bootstraps
+3. **Web Server Setup**
+
+   - Nginx/Apache configurations
+   - SSL/TLS implementation
+   - Node.js + PM2
+   - Multi-site hosting
+
+4. **Monitoring**
+
+   - System metrics
+   - Security monitoring
+   - Performance tracking
+   - Alert configuration
+
+5. **Server Maintenance**
+
+   - System auditing
+   - Security checks
+   - Performance optimization
+   - Log management
+
+6. **Data Backups**
+
+   - Encrypted backups
+   - Automated routines
+   - Verification processes
+   - Restoration procedures
+
+7. **Bootstraps**
+   - Configuration templates
+   - Hardened defaults
+   - Quick-start scripts
 
 <br/>
 <br/>
@@ -82,7 +118,7 @@ $ sudo shutdown -r now
 
 Basic hardening configurations to use in all VPS instances.
 
-### SSH hardening and daemon configuration
+## SSH hardening and daemon configuration
 
 On the server:
 
@@ -114,7 +150,7 @@ Restart SSH
 $ sudo systemctl restart sshd
 ```
 
-### Fail2ban
+## Fail2ban
 
 Simple intrusion prevention software.
 
@@ -175,7 +211,9 @@ bantime = 24h
 
 Then create a custom filter for nginx SSL issues:
 
+```console
 $ sudo nano /etc/fail2ban/filter.d/nginx-badhosts.conf
+```
 
 ```console
 [Definition]
@@ -184,27 +222,185 @@ ignoreregex =
 ```
 
 Adding a verification section:
+
+```console
 $ sudo systemctl restart fail2ban
 $ sudo systemctl status fail2ban
 $ sudo fail2ban-client status
 $ sudo fail2ban-client status sshd
 $ sudo fail2ban-client status nginx-badhosts
+```
 
 Test the nginx filter against logs:
-$ sudo fail2ban-regex /var/log/nginx/error.log /etc/fail2ban/filter.d/nginx-badhosts.conf
-
-Monitor fail2ban activity:
-$ sudo tail -f /var/log/fail2ban.log
-
-Check currently banned IPs:
-$ sudo fail2ban-client get sshd banned
-$ sudo fail2ban-client get nginx-badhosts banned
-
-### Remove Unused Network-Facing Services
 
 ```console
-$ sudo ss -atpu
-$ sudo apt purge "package_name"
+$ sudo fail2ban-regex /var/log/nginx/error.log /etc/fail2ban/filter.d/nginx-badhosts.conf
+```
+
+Monitor fail2ban activity:
+
+```
+$ sudo tail -f /var/log/fail2ban.log
+```
+
+Check currently banned IPs:
+
+```
+$ sudo fail2ban-client get sshd banned
+$ sudo fail2ban-client get nginx-badhosts banned
+```
+
+## Crowdsec
+
+Modern, collaborative security engine that works alongside fail2ban.
+
+#### Installation
+
+```console
+# Add Crowdsec repository
+$ curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
+
+# Install Crowdsec with nginx collection
+$ sudo apt install crowdsec
+$ sudo apt install crowdsec-nginx-bouncer
+
+# Initial setup
+$ sudo cscli hub update
+$ sudo cscli collections install crowdsecurity/nginx
+$ sudo cscli collections install crowdsecurity/linux
+$ sudo cscli collections install crowdsecurity/http-cve
+```
+
+Create parsers configuration:
+
+```console
+$ sudo nano /etc/crowdsec/acquis.yaml
+```
+
+```console
+filenames:
+  - /var/log/nginx/access.log
+  - /var/log/nginx/error.log
+labels:
+  type: nginx
+```
+
+Configure Nginx Bouncer:
+
+```console
+$ sudo nano /etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf
+```
+
+```console
+api_key: # Will be automatically populated
+ban_time: 1h
+ban_mode: http-403
+include_scenarios:
+  - crowdsecurity/http-probing
+  - crowdsecurity/http-bad-user-agent
+  - crowdsecurity/nginx-http-bad-user-agent
+  - crowdsecurity/http-crawl-non_statics
+  - crowdsecurity/http-path-traversal-probing
+```
+
+Configure Nginx for Crowdsec:
+
+```console
+$ sudo nano /etc/nginx/conf.d/crowdsec_nginx.conf
+```
+
+```console
+load_module /usr/lib/nginx/modules/ngx_http_crowdsec_module.so;
+
+http {
+    crowdsec_instance {
+        path /var/run/crowdsec/crowdsec-nginx-bouncer.sock;
+    }
+    # ... rest of your http configuration
+}
+```
+
+Start Services
+
+```console
+# Restart services to apply changes
+$ sudo systemctl restart crowdsec
+$ sudo systemctl restart nginx
+$ sudo systemctl enable crowdsec
+
+# Verify services
+$ sudo systemctl status crowdsec
+$ sudo cscli hub list
+```
+
+Basic Commands
+
+```console
+# Check Crowdsec status
+$ sudo cscli metrics
+
+# List current bans
+$ sudo cscli decisions list
+
+# List active scenarios
+$ sudo cscli scenarios list
+
+# List bouncers
+$ sudo cscli bouncers list
+
+# Check real-time logs
+$ sudo journalctl -f -u crowdsec
+
+# Add IP to whitelist
+$ sudo cscli decisions add --ip X.X.X.X --duration 168h --type whitelist
+
+# Remove IP from bans
+$ sudo cscli decisions delete --ip X.X.X.X
+```
+
+Maintenance: daily tasks
+
+```console
+# Update hub collections
+$ sudo cscli hub update
+
+# Check for outdated scenarios
+$ sudo cscli scenarios list -o
+
+# Review metrics
+$ sudo cscli metrics
+
+# Review current decisions
+$ sudo cscli decisions list
+
+# Check bouncer status
+$ sudo cscli bouncers list
+```
+
+Maintenance: weekly checks
+
+```console
+# Full database cleanup
+$ sudo cscli database cleanup
+
+# Update all collections
+$ sudo cscli collections upgrade
+
+# Check configuration validity
+$ sudo crowdsec -c /etc/crowdsec/config.yaml -t
+
+```
+
+#### Integration with fail2ban
+
+Crowdsec can work alongside fail2ban. Configure fail2ban to respect Crowdsec's decisions:
+
+`````console
+$ sudo nano /etc/fail2ban/jail.local
+```
+Add to [DEFAULT] section:
+````console
+ignoreip = 127.0.0.1/8 ::1 # Add your IPs and Crowdsec's IP range if used
 ```
 
 ### Rootkit protection
@@ -216,9 +412,9 @@ $ sudo apt install rkhunter
 $ sudo rkhunter --propupd
 $ sudo rkhunter --check
 $ sudo apt install chkrootkit
-```
+`````
 
-### Firewall
+## Firewall
 
 Always iptables: Minimal configuration; Easygoing; Effective.
 
@@ -348,7 +544,7 @@ $ sudo iptables -S
 $ sudo ip6tables -S
 ```
 
-### Lynis
+## Lynis
 
 Lynis to perform full system audits.
 
@@ -356,12 +552,19 @@ Lynis to perform full system audits.
 $ sudo apt install lynis
 ```
 
-### whowatch
+## whowatch
 
 To monitor active SSH connections.
 
 ```console
 $ sudo apt install whowatch
+```
+
+## Remove Unused Network-Facing Services
+
+```console
+$ sudo ss -atpu
+$ sudo apt purge "package_name"
 ```
 
 <br/>
@@ -687,7 +890,136 @@ Configuring Apache to Reserve Proxy to PM2:
 <br/>
 <br/>
 
-# 4. Maintenance
+# 4. Monitoring
+
+Essential monitoring setup for all VPS instances.
+
+### Netdata
+
+Real-time performance and health monitoring system. Provides immediate insight into web server performance, system resources, and potential security issues.
+
+Install required dependencies:
+
+```console
+$ sudo apt install wget curl
+```
+
+Install Netdata using the automatic installer
+
+```console
+$ wget -O /tmp/netdata-kickstart.sh https://my-netdata.io/kickstart.sh
+$ sudo sh /tmp/netdata-kickstart.sh --no-updates --stable-channel --disable-telemetry
+```
+
+Verify the installation
+
+```console
+$ sudo systemctl status netdata
+```
+
+Restrict Netdata to localhost only:
+
+```console
+$ sudo nano /etc/netdata/netdata.conf
+```
+
+```console
+[global]
+    # Reduce retention to save resources (default is 3600)
+    history = 1800
+
+[web]
+    # Only allow connections from localhost
+    bind to = localhost
+    allow connections from = localhost
+    mode = static-threaded
+```
+
+Create a custom system configuration:
+
+```console
+$ sudo nano /etc/netdata/go.d.local/web_log.conf
+```
+
+```console
+jobs:
+  - name: nginx
+    path: /var/log/nginx/access.log
+
+  - name: apache
+    path: /var/log/apache2/access.log
+```
+
+Create custom alerts for web hosting:
+
+```console
+$ sudo nano /etc/netdata/health.d/web_alerts.conf
+```
+
+```console
+# High CPU Usage Alert
+alarm: cpu_usage
+    on: system.cpu
+    lookup: average -3m unaligned of user,system,softirq,irq,guest
+    units: %
+    every: 1m
+    warn: $this > 60
+    crit: $this > 80
+    info: CPU utilization exceeded threshold
+
+# RAM Usage Alert
+alarm: ram_usage
+    on: system.ram
+    lookup: average -1m percentage of used
+    units: %
+    every: 1m
+    warn: $this > 70
+    crit: $this > 85
+    info: RAM utilization exceeded threshold
+
+# Disk Space Alert
+alarm: disk_space_usage
+    on: disk.space
+    lookup: average -1m percentage of used
+    units: %
+    every: 1m
+    warn: $this > 80
+    crit: $this > 90
+    info: Disk space utilization exceeded threshold
+
+# Web Server Response Time
+alarm: web_response_time
+    on: web_log.response_time
+    lookup: average -3m
+    units: ms
+    every: 1m
+    warn: $this > 500
+    crit: $this > 1000
+    info: Web server response time is too high
+```
+
+Restart Netdata
+
+```console
+$ sudo systemctl restart netdata
+```
+
+### Access Dashboard
+
+From our local machine:
+
+```console
+# Create SSH tunnel to access Netdata dashboard
+$ ssh -L 19999:localhost:19999 username@server_ip
+
+# Access dashboard by opening it in the browser:
+# http://localhost:19999
+```
+
+<br/>
+<br/>
+
+# 5. Server Maintenance
 
 Semi-regular healthy maintenance tasks.
 
@@ -720,7 +1052,7 @@ $ sudo whowatch
 <br/>
 <br/>
 
-# 5. Data backup
+# 6. Data backup
 
 Simple processes to backup (encrypted versions) all-things VPS data:
 
@@ -752,13 +1084,13 @@ $ tar czvf - ~/etc/letsencrypt | gpg --symmetric --cipher-algo AES256 -o ~/encry
 $ tar czvf - ~/var/home/audits | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-security-audits.tar.gz.gpg
 ```
 
-Then, use rsync to copy the encrypted backups from your VPS to your local machine:
+Then, use rsync to copy the encrypted backups from our VPS to our local machine:
 
 ```console
 $ rsync -ahvz username@vpsipaddress:/path/to/encrypted_backups/ /path/to/local/encrypted_backups/
 ```
 
-Then, on your local machine, decrypt and extract a specific backup:
+Then, on our local machine, decrypt and extract a specific backup:
 
 ```console
 $ gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf -
@@ -767,7 +1099,7 @@ $ gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf 
 <br/>
 <br/>
 
-# 6. Bootstraps
+# 7. Bootstraps
 
 A bunch of opinionated and hardened files for multiple software configs:
 
@@ -779,7 +1111,8 @@ A bunch of opinionated and hardened files for multiple software configs:
 
 ### fail2ban
 
-[jail.conf](https://github.com/fidacura/Debian9000//)
+[jail.local](https://github.com/fidacura/Debian9000/fail2ban/jail.local/)
+[nginx-badhosts.conf](https://github.com/fidacura/Debian9000/fail2ban/filter.d/nginx-badhosts.conf)
 
 ### fish
 
