@@ -60,40 +60,40 @@ Basic Linux configurations to use in all VPS instances.
 ### System update && upgrade
 
 ```console
-$ apt update && apt upgrade
+apt update && apt upgrade
 ```
 
 ### Hostname change
 
 ```console
-$ hostnamectl set-hostname "hostname"
+hostnamectl set-hostname "hostname"
 ```
 
 ### Update /etc/hosts
 
 ```console
-$ echo "hostname" > /etc/hostname
-$ hostname -F /etc/hostname
+echo "hostname" > /etc/hostname
+hostname -F /etc/hostname
 ```
 
 ### Timezone setup
 
 ```console
-$ dpkg-reconfigure tzdata
-$ date
+dpkg-reconfigure tzdata
+date
 ```
 
 ### New user
 
 ```
-$ adduser "username"
+adduser "username"
 ```
 
 ### Sudo
 
 ```console
-$ apt install sudo
-$ usermod -a -G sudo "username"
+apt install sudo
+usermod -a -G sudo "username"
 ```
 
 ### Fish
@@ -101,14 +101,14 @@ $ usermod -a -G sudo "username"
 A modern, easy-going, and powerful shell.
 
 ```console
-$ sudo apt install fish
-$ sudo chsh -s /usr/bin/fish
+sudo apt install fish
+sudo chsh -s /usr/bin/fish
 ```
 
 ### Reboot
 
 ```console
-$ sudo shutdown -r now
+sudo shutdown -r now
 ```
 
 <br/>
@@ -123,14 +123,14 @@ Basic hardening configurations to use in all VPS instances.
 On the server:
 
 ```console
-$ mkdir -p ~/.ssh/ && sudo chmod -R 700 ~/.ssh/
-$ sudo chmod 700 -R ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+mkdir -p ~/.ssh/ && sudo chmod -R 700 ~/.ssh/
+sudo chmod 700 -R ~/.ssh && chmod 600 ~/.ssh/authorized_keys
 ```
 
 On local machine:
 
 ```console
-$ scp ~/.ssh/id_rsa.pub username@vpsipaddress:~/.ssh/authorized_keys
+scp ~/.ssh/id_rsa.pub username@vpsipaddress:~/.ssh/authorized_keys
 ```
 
 File: /etc/ssh/sshd_config
@@ -147,7 +147,7 @@ AddressFamily inet
 Restart SSH
 
 ```console
-$ sudo systemctl restart sshd
+sudo systemctl restart sshd
 ```
 
 ## Fail2ban
@@ -155,19 +155,19 @@ $ sudo systemctl restart sshd
 Simple intrusion prevention software.
 
 ```console
-$ apt install fail2ban
+apt install fail2ban
 ```
 
 Configure:
 
 ```console
-$ cp /etc/fail2ban/fail2ban.conf /etc/fail2ban/fail2ban.local
-$ cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+cp /etc/fail2ban/fail2ban.conf /etc/fail2ban/fail2ban.local
+cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 ```
 
 Lets configure jail.local with our optimized settings:
 
-$ sudo nano /etc/fail2ban/jail.local
+sudo nano /etc/fail2ban/jail.local
 
 ```console
 [DEFAULT]
@@ -212,7 +212,7 @@ bantime = 24h
 Then create a custom filter for nginx SSL issues:
 
 ```console
-$ sudo nano /etc/fail2ban/filter.d/nginx-badhosts.conf
+sudo nano /etc/fail2ban/filter.d/nginx-badhosts.conf
 ```
 
 ```console
@@ -224,30 +224,30 @@ ignoreregex =
 Adding a verification section:
 
 ```console
-$ sudo systemctl restart fail2ban
-$ sudo systemctl status fail2ban
-$ sudo fail2ban-client status
-$ sudo fail2ban-client status sshd
-$ sudo fail2ban-client status nginx-badhosts
+sudo systemctl restart fail2ban
+sudo systemctl status fail2ban
+sudo fail2ban-client status
+sudo fail2ban-client status sshd
+sudo fail2ban-client status nginx-badhosts
 ```
 
 Test the nginx filter against logs:
 
 ```console
-$ sudo fail2ban-regex /var/log/nginx/error.log /etc/fail2ban/filter.d/nginx-badhosts.conf
+sudo fail2ban-regex /var/log/nginx/error.log /etc/fail2ban/filter.d/nginx-badhosts.conf
 ```
 
 Monitor fail2ban activity:
 
 ```
-$ sudo tail -f /var/log/fail2ban.log
+sudo tail -f /var/log/fail2ban.log
 ```
 
 Check currently banned IPs:
 
 ```
-$ sudo fail2ban-client get sshd banned
-$ sudo fail2ban-client get nginx-badhosts banned
+sudo fail2ban-client get sshd banned
+sudo fail2ban-client get nginx-badhosts banned
 ```
 
 ## Crowdsec
@@ -258,23 +258,23 @@ Modern, collaborative security engine that works alongside fail2ban.
 
 ```console
 # Add Crowdsec repository
-$ curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
+curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
 
 # Install Crowdsec with nginx collection
-$ sudo apt install crowdsec
-$ sudo apt install crowdsec-nginx-bouncer
+sudo apt install crowdsec
+sudo apt install crowdsec-nginx-bouncer
 
 # Initial setup
-$ sudo cscli hub update
-$ sudo cscli collections install crowdsecurity/nginx
-$ sudo cscli collections install crowdsecurity/linux
-$ sudo cscli collections install crowdsecurity/http-cve
+sudo cscli hub update
+sudo cscli collections install crowdsecurity/nginx
+sudo cscli collections install crowdsecurity/linux
+sudo cscli collections install crowdsecurity/http-cve
 ```
 
 Create parsers configuration:
 
 ```console
-$ sudo nano /etc/crowdsec/acquis.yaml
+sudo nano /etc/crowdsec/acquis.yaml
 ```
 
 ```console
@@ -288,7 +288,7 @@ labels:
 Configure Nginx Bouncer:
 
 ```console
-$ sudo nano /etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf
+sudo nano /etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf
 ```
 
 ```console
@@ -306,7 +306,7 @@ include_scenarios:
 Configure Nginx for Crowdsec:
 
 ```console
-$ sudo nano /etc/nginx/conf.d/crowdsec_nginx.conf
+sudo nano /etc/nginx/conf.d/crowdsec_nginx.conf
 ```
 
 ```console
@@ -324,70 +324,70 @@ Start Services
 
 ```console
 # Restart services to apply changes
-$ sudo systemctl restart crowdsec
-$ sudo systemctl restart nginx
-$ sudo systemctl enable crowdsec
+sudo systemctl restart crowdsec
+sudo systemctl restart nginx
+sudo systemctl enable crowdsec
 
 # Verify services
-$ sudo systemctl status crowdsec
-$ sudo cscli hub list
+sudo systemctl status crowdsec
+sudo cscli hub list
 ```
 
 Basic Commands
 
 ```console
 # Check Crowdsec status
-$ sudo cscli metrics
+sudo cscli metrics
 
 # List current bans
-$ sudo cscli decisions list
+sudo cscli decisions list
 
 # List active scenarios
-$ sudo cscli scenarios list
+sudo cscli scenarios list
 
 # List bouncers
-$ sudo cscli bouncers list
+sudo cscli bouncers list
 
 # Check real-time logs
-$ sudo journalctl -f -u crowdsec
+sudo journalctl -f -u crowdsec
 
 # Add IP to whitelist
-$ sudo cscli decisions add --ip X.X.X.X --duration 168h --type whitelist
+sudo cscli decisions add --ip X.X.X.X --duration 168h --type whitelist
 
 # Remove IP from bans
-$ sudo cscli decisions delete --ip X.X.X.X
+sudo cscli decisions delete --ip X.X.X.X
 ```
 
 Maintenance: daily tasks
 
 ```console
 # Update hub collections
-$ sudo cscli hub update
+sudo cscli hub update
 
 # Check for outdated scenarios
-$ sudo cscli scenarios list -o
+sudo cscli scenarios list -o
 
 # Review metrics
-$ sudo cscli metrics
+sudo cscli metrics
 
 # Review current decisions
-$ sudo cscli decisions list
+sudo cscli decisions list
 
 # Check bouncer status
-$ sudo cscli bouncers list
+sudo cscli bouncers list
 ```
 
 Maintenance: weekly checks
 
 ```console
 # Full database cleanup
-$ sudo cscli database cleanup
+sudo cscli database cleanup
 
 # Update all collections
-$ sudo cscli collections upgrade
+sudo cscli collections upgrade
 
 # Check configuration validity
-$ sudo crowdsec -c /etc/crowdsec/config.yaml -t
+sudo crowdsec -c /etc/crowdsec/config.yaml -t
 
 ```
 
@@ -396,7 +396,7 @@ $ sudo crowdsec -c /etc/crowdsec/config.yaml -t
 Crowdsec can work alongside fail2ban. Configure fail2ban to respect Crowdsec's decisions:
 
 `````console
-$ sudo nano /etc/fail2ban/jail.local
+sudo nano /etc/fail2ban/jail.local
 ```
 Add to [DEFAULT] section:
 ````console
@@ -408,10 +408,10 @@ ignoreip = 127.0.0.1/8 ::1 # Add your IPs and Crowdsec's IP range if used
 Rkhunter and chkrootkit:
 
 ```console
-$ sudo apt install rkhunter
-$ sudo rkhunter --propupd
-$ sudo rkhunter --check
-$ sudo apt install chkrootkit
+sudo apt install rkhunter
+sudo rkhunter --propupd
+sudo rkhunter --check
+sudo apt install chkrootkit
 `````
 
 ## Firewall
@@ -419,9 +419,9 @@ $ sudo apt install chkrootkit
 Always iptables: Minimal configuration; Easygoing; Effective.
 
 ```console
-$ sudo iptables -L
-$ sudo apt install iptables-persistent
-$ sudo nano /etc/iptables/rules.v4
+sudo iptables -L
+sudo apt install iptables-persistent
+sudo nano /etc/iptables/rules.v4
 ```
 
 iptables file [ [download here](https://github.com/fidacura/Debian9000//) ]:
@@ -499,8 +499,8 @@ COMMIT
 ```
 
 ```console
-$ sudo iptables-restore -t /etc/iptables/rules.v4
-$ sudo nano /etc/iptables/rules.v6
+sudo iptables-restore -t /etc/iptables/rules.v4
+sudo nano /etc/iptables/rules.v6
 ```
 
 ```console
@@ -538,10 +538,10 @@ COMMIT
 ```
 
 ```console
-$ sudo ip6tables-restore -t /etc/iptables/rules.v6
-$ sudo service netfilter-persistent reload
-$ sudo iptables -S
-$ sudo ip6tables -S
+sudo ip6tables-restore -t /etc/iptables/rules.v6
+sudo service netfilter-persistent reload
+sudo iptables -S
+sudo ip6tables -S
 ```
 
 ## Lynis
@@ -549,7 +549,7 @@ $ sudo ip6tables -S
 Lynis to perform full system audits.
 
 ```console
-$ sudo apt install lynis
+sudo apt install lynis
 ```
 
 ## whowatch
@@ -557,14 +557,14 @@ $ sudo apt install lynis
 To monitor active SSH connections.
 
 ```console
-$ sudo apt install whowatch
+sudo apt install whowatch
 ```
 
 ## Remove Unused Network-Facing Services
 
 ```console
-$ sudo ss -atpu
-$ sudo apt purge "package_name"
+sudo ss -atpu
+sudo apt purge "package_name"
 ```
 
 <br/>
@@ -585,32 +585,32 @@ Multiple configurations for regular web server needs.
 ## Let's Encrypt
 
 ```console
-$ sudo apt install certbot
+sudo apt install certbot
 ```
 
 Request a certificate for Apache:
 
 ```console
-$  sudo certbot --apache -d domain.com -d www.domain.com
+sudo certbot --apache -d domain.com -d www.domain.com
 ```
 
 Request a certificate for Nginx:
 
 ```console
-$  sudo certbot --nginx -d domain.com -d www.domain.com
+sudo certbot --nginx -d domain.com -d www.domain.com
 ```
 
 Certificate automated renewals:
 
 ```console
-$  sudo certbot renew --dry-run
+sudo certbot renew --dry-run
 ```
 
 ## Nginx
 
 ```console
-$ sudo apt install nginx
-$ sudo chmod -R 755 /var/www
+sudo apt install nginx
+sudo chmod -R 755 /var/www
 ```
 
 ### Nginx: New Website
@@ -618,13 +618,13 @@ $ sudo chmod -R 755 /var/www
 Nginx folder structure.
 
 ```console
-$ sudo mkdir -p /var/www/your_domain/html
+sudo mkdir -p /var/www/your_domain/html
 ```
 
 ```console
-$ sudo chown -R $USER:$USER /var/www/your_domain/html
-$ sudo chmod -R 755 /var/www/your_domain
-$ sudo chmod -R 755 /var/www/your_domain
+sudo chown -R $USER:$USER /var/www/your_domain/html
+sudo chmod -R 755 /var/www/your_domain
+sudo chmod -R 755 /var/www/your_domain
 ```
 
 sample index.html
@@ -636,7 +636,7 @@ $ nano /var/www/your_domain/html/index.html
 your_domain config default config file
 
 ```console
-$ sudo nano /etc/nginx/sites-available/your_domain
+sudo nano /etc/nginx/sites-available/your_domain
 ```
 
 ```nginx
@@ -714,13 +714,13 @@ server {
 enable server block
 
 ```console
-$ sudo ln -s /etc/nginx/sites-available/your_domain /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/your_domain /etc/nginx/sites-enabled/
 ```
 
 safeguard for hash bucket memory
 
 ```console
-$ sudo nano /etc/nginx/nginx.conf
+sudo nano /etc/nginx/nginx.conf
 ```
 
 ```nginx
@@ -736,42 +736,42 @@ http {
 nginx verification
 
 ```console
-$ sudo nginx -t
+sudo nginx -t
 ```
 
 ```console
-$ sudo systemctl restart nginx
+sudo systemctl restart nginx
 ```
 
 ## Apache
 
 ```console
-$ sudo apt install apache2
-$ sudo chmod -R 755 /var/www
+sudo apt install apache2
+sudo chmod -R 755 /var/www
 ```
 
 Enable the ssl module
 
 ```console
-$ sudo a2enmod ssl
+sudo a2enmod ssl
 ```
 
 Enable the proxy module
 
 ```console
-$ sudo a2enmod proxy
+sudo a2enmod proxy
 ```
 
 Enable the http2 module
 
 ```console
-$ sudo a2enmod http2
+sudo a2enmod http2
 ```
 
 Restart Apache.
 
 ```console
-$  sudo systemctl restart apache2
+sudo systemctl restart apache2
 ```
 
 ### Apache: New Website
@@ -827,23 +827,23 @@ $ touch /etc/apache2/sites-available/domain.com-ssl.conf
 Map the domain.
 
 ```console
-$ sudo a2ensite domain.com.conf
+sudo a2ensite domain.com.conf
 ```
 
 Restart the Apache service to register the changes.
 
 ```console
-$ sudo systemctl restart apache2
+sudo systemctl restart apache2
 ```
 
 ## Node and PM2
 
 ```console
-$ sudo apt install nodejs
-$ sudo apt install npm
-$ sudo npm install pm2 -g
-$ sudo pm2 list
-$ sudo pm2 monit
+sudo apt install nodejs
+sudo apt install npm
+sudo npm install pm2 -g
+sudo pm2 list
+sudo pm2 monit
 ```
 
 Configuring Apache to Reserve Proxy to PM2:
@@ -901,26 +901,26 @@ Real-time performance and health monitoring system. Provides immediate insight i
 Install required dependencies:
 
 ```console
-$ sudo apt install wget curl
+sudo apt install wget curl
 ```
 
 Install Netdata using the automatic installer
 
 ```console
 $ wget -O /tmp/netdata-kickstart.sh https://my-netdata.io/kickstart.sh
-$ sudo sh /tmp/netdata-kickstart.sh --no-updates --stable-channel --disable-telemetry
+sudo sh /tmp/netdata-kickstart.sh --no-updates --stable-channel --disable-telemetry
 ```
 
 Verify the installation
 
 ```console
-$ sudo systemctl status netdata
+sudo systemctl status netdata
 ```
 
 Restrict Netdata to localhost only:
 
 ```console
-$ sudo nano /etc/netdata/netdata.conf
+sudo nano /etc/netdata/netdata.conf
 ```
 
 ```console
@@ -938,7 +938,7 @@ $ sudo nano /etc/netdata/netdata.conf
 Create a custom system configuration:
 
 ```console
-$ sudo nano /etc/netdata/go.d.local/web_log.conf
+sudo nano /etc/netdata/go.d.local/web_log.conf
 ```
 
 ```console
@@ -953,7 +953,7 @@ jobs:
 Create custom alerts for web hosting:
 
 ```console
-$ sudo nano /etc/netdata/health.d/web_alerts.conf
+sudo nano /etc/netdata/health.d/web_alerts.conf
 ```
 
 ```console
@@ -1001,7 +1001,7 @@ alarm: web_response_time
 Restart Netdata
 
 ```console
-$ sudo systemctl restart netdata
+sudo systemctl restart netdata
 ```
 
 ### Access Dashboard
@@ -1026,27 +1026,27 @@ Semi-regular healthy maintenance tasks.
 ### Lynis: System Auditing
 
 ```console
-$ sudo lynis show options
-$ sudo lynis audit system
+sudo lynis show options
+sudo lynis audit system
 ```
 
 ### Rkhunter
 
 ```console
-$ sudo rkhunter -C
-$ sudo rkhunter > ~/audits/rkhunter-audit-results.txt
+sudo rkhunter -C
+sudo rkhunter > ~/audits/rkhunter-audit-results.txt
 ```
 
 ### chkrootkit
 
 ```console
-$ sudo chkrootkit > ~/audits/chkrootkit-audit-results.txt
+sudo chkrootkit > ~/audits/chkrootkit-audit-results.txt
 ```
 
 ### whowatch
 
 ```console
-$ sudo whowatch
+sudo whowatch
 ```
 
 <br/>
