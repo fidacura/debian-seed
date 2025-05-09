@@ -1,54 +1,22 @@
 # debian-seed
 
-A structured guide to setting up and maintaining a Debian VPS—secure, robust, and production-ready with monitoring.
-
-## Structure & Features
+A guide to setting up and maintaining a Debian VPS—secure, robust, and production-ready.
 
 1. **Basic Server Configuration**
 
-   - System initialization
-   - User management
-   - Essential utilities
-
 2. **Security Hardening**
-
-   - SSH hardening
-   - Firewall configuration
-   - Intrusion prevention
-   - Rootkit protection
 
 3. **Web Server Setup**
 
-   - Nginx/Apache configurations
-   - SSL/TLS implementation
-   - Node.js + PM2
-   - Multi-site hosting
-
 4. **Monitoring**
-
-   - System metrics
-   - Security monitoring
-   - Performance tracking
-   - Alert configuration
 
 5. **Server Maintenance**
 
-   - System auditing
-   - Security checks
-   - Performance optimization
-   - Log management
-
 6. **Data Backups**
 
-   - Encrypted backups
-   - Automated routines
-   - Verification processes
-   - Restoration procedures
+7. **Upgrade Process**
 
-7. **Bootstraps**
-   - Configuration templates
-   - Hardened defaults
-   - Quick-start scripts
+8. **Bootstraps**
 
 <br/>
 <br/>
@@ -165,7 +133,7 @@ cp /etc/fail2ban/fail2ban.conf /etc/fail2ban/fail2ban.local
 cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 ```
 
-Lets configure jail.local with our optimized settings:
+Lets configure jail.local with optimized settings:
 
 sudo nano /etc/fail2ban/jail.local
 
@@ -1006,7 +974,7 @@ sudo systemctl restart netdata
 
 ### Access Dashboard
 
-From our local machine:
+From local machine:
 
 ```console
 # Create SSH tunnel to access Netdata dashboard
@@ -1056,50 +1024,201 @@ sudo whowatch
 
 Simple processes to backup (encrypted versions) all-things VPS data:
 
-Regular compressed backups:
-
 ```console
-# Create a directory for encrypted backups if it doesn't exist
-$ mkdir -p ~/encrypted_backups
+# create backup dirs in home folder
+mkdir -p ~/backup/{sys-configs,web-configs,security,databases,custom}
 
-# Backup and encrypt home directory
-$ tar czvf - ~/var/home | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-home.tar.gz.gpg
+# system configurations (these still need sudo to read)
+sudo tar -czvf ~/backup/sys-configs/etc-backup.tar.gz /etc/
+sudo tar -czvf ~/backup/sys-configs/ssh-config.tar.gz /etc/ssh/
+sudo tar -czvf ~/backup/sys-configs/user-data.tar.gz /home/
 
-# Backup and encrypt web directory
-$ tar czvf - ~/var/www | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-web.tar.gz.gpg
+# web-server configurations
+sudo tar -czvf ~/backup/web-configs/nginx-sites.tar.gz /etc/nginx/sites-available/ /etc/nginx/sites-enabled/
+sudo tar -czvf ~/backup/web-configs/apache-sites.tar.gz /etc/apache2/sites-available/ /etc/apache2/sites-enabled/ 2>/dev/null
+sudo tar -czvf ~/backup/web-configs/www-data.tar.gz /var/www/
+sudo tar -czvf ~/backup/web-configs/letsencrypt.tar.gz /etc/letsencrypt/
 
-# Backup and encrypt logs
-$ tar czvf - ~/var/log | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-logs.tar.gz.gpg
+# security configurations
+sudo tar -czvf ~/backup/security/iptables-rules.tar.gz /etc/iptables/
+sudo tar -czvf ~/backup/security/fail2ban.tar.gz /etc/fail2ban/
+sudo tar -czvf ~/backup/security/crowdsec.tar.gz /etc/crowdsec/ 2>/dev/null
 
-# Backup and encrypt Apache configuration
-$ tar czvf - ~/etc/apache2 | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-apache.tar.gz.gpg
+# node.js & pm2 Configurations
+if command -v pm2 &> /dev/null; then
+    pm2 save
+    tar -czvf ~/backup/custom/pm2-config.tar.gz ~/.pm2/ 2>/dev/null
+fi
 
-# Backup and encrypt Nginx configuration
-$ tar czvf - ~/etc/nginx | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-nginx.tar.gz.gpg
+# create a list of installed packages
+dpkg --get-selections > ~/backup/sys-configs/installed-packages.txt
 
-# Backup and encrypt Let's Encrypt certificates
-$ tar czvf - ~/etc/letsencrypt | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-letsencrypt-certificates.tar.gz.gpg
+# create a snapshot of current system state
+sudo apt install -y debsums
+sudo debsums -s -c > ~/backup/sys-configs/modified-config-files.txt 2>&1
 
-# Backup and encrypt security audits
-$ tar czvf - ~/var/home/audits | gpg --symmetric --cipher-algo AES256 -o ~/encrypted_backups/vps-backup-security-audits.tar.gz.gpg
+# create snapshot of file permissions in /etc
+sudo find /etc -type f -exec stat -c "%a %n" {} \; > ~/backup/sys-configs/etc-permissions.txt
+
+# fix ownership of all backup files
+sudo chown -R $(whoami):$(whoami) ~/master-backup
+
+# encrypt all backups
+cd ~
+tar -czvf vps-backup.tar.gz backup/
+gpg --symmetric --cipher-algo AES256 vps-backup.tar.gz
 ```
 
-Then, use rsync to copy the encrypted backups from our VPS to our local machine:
+rsync to copy the encrypted backups from VPS to local machine:
 
 ```console
-$ rsync -ahvz username@vpsipaddress:/path/to/encrypted_backups/ /path/to/local/encrypted_backups/
+rsync -ahvz username@vps-ip:~/vps-backup.tar.gz ~/local-backups/
 ```
 
-Then, on our local machine, decrypt and extract a specific backup:
+decrypt and extract backups on local machine:
 
 ```console
-$ gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf -
+gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf -
 ```
 
 <br/>
 <br/>
 
-# 7. Bootstraps
+# 7. Upgrade Process (Debian 12 Bookworm)
+
+Preliminary Steps:
+
+```console
+# current system full update
+sudo apt update
+sudo apt upgrade
+sudo apt full-upgrade
+
+# remove unnecessary packages
+sudo apt --purge autoremove
+
+# check if any packages are on hold
+apt-mark showhold
+```
+
+Update Sources List:
+
+```console
+# backup sources list
+sudo cp /etc/apt/sources.list /etc/apt/sources.list.bullseye.bak
+
+# create new sources list for Bookworm
+sudo nano /etc/apt/sources.list
+```
+
+/etc/apt/sources.list:
+
+```console
+deb http://deb.debian.org/debian bookworm main contrib non-free-firmware non-free
+# deb-src http://deb.debian.org/debian bookworm main contrib non-free-firmware non-free
+
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free-firmware non-free
+# deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free-firmware non-free
+
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free-firmware non-free
+# deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free-firmware non-free
+
+# FastTrack repository (requires separate installation in Bookworm)
+# Will be configured after upgrade
+```
+
+Perform the upgrade:
+
+```console
+# update package index with new sources
+sudo apt update
+
+# upgrade minimal essential packages
+sudo apt upgrade --without-new-pkgs
+
+# execute full dist-upgrade
+sudo apt full-upgrade
+
+# clean-up obsolete packages
+sudo apt --purge autoremove
+
+# re-install fasttrack for Bookworm (setup is different in Bookworm)
+sudo apt install fasttrack-archive-keyring
+sudo sh -c 'cat > /etc/apt/sources.list.d/fasttrack.list << EOF
+deb https://fasttrack.debian.net/debian-fasttrack/ bookworm-fasttrack main contrib non-free
+# deb-src https://fasttrack.debian.net/debian-fasttrack/ bookworm-fasttrack main contrib non-free
+EOF'
+
+# last update
+sudo apt update
+```
+
+Post-Upgrade Tasks:
+
+```console
+# check for held or broken packages
+sudo apt-mark showhold
+sudo dpkg --audit
+sudo apt --fix-broken install
+
+# restart system to use the new kernel
+sudo shutdown -r now
+
+# post-reboot: verify version
+lsb_release -a
+uname -a
+
+# re-install/re-config critical security components
+sudo apt reinstall fail2ban
+sudo systemctl restart fail2ban
+sudo systemctl status fail2ban
+
+# re-configure Crowdsec
+if systemctl is-active --quiet crowdsec; then
+    sudo apt reinstall crowdsec crowdsec-nginx-bouncer
+    sudo systemctl restart crowdsec
+    sudo systemctl status crowdsec
+fi
+
+# verify firewall rules are intact
+sudo iptables -L
+sudo service netfilter-persistent reload
+
+# update and verify web server configs
+if systemctl is-active --quiet nginx; then
+    sudo nginx -t
+    sudo systemctl restart nginx
+fi
+
+if systemctl is-active --quiet apache2; then
+    sudo apache2ctl configtest
+    sudo systemctl restart apache2
+fi
+
+# check for any overwritten modified files
+sudo debsums -s -c
+```
+
+Post-upgrade Security Verification:
+
+```console
+# run security audit with Lynis
+sudo lynis audit system
+
+# comprehensive security checks
+sudo fail2ban-client status
+sudo systemctl status crowdsec
+sudo netstat -tulpn | grep "LISTEN"
+sudo lynis audit system
+sudo rkhunter --check
+sudo chkrootkit
+
+# update SSL security settings for web servers
+# Verify TLS 1.3 is enabled and older protocols disabled
+sudo nano /etc/letsencrypt/options-ssl-nginx.conf
+```
+
+# 8. Bootstraps
 
 A bunch of opinionated and hardened files for multiple software configs:
 
