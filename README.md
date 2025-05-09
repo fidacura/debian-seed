@@ -1022,8 +1022,6 @@ sudo whowatch
 
 # 6. Data backup
 
-Simple processes to backup (encrypted versions) all-things VPS data:
-
 Create backup dirs in home folder:
 
 ```console
