@@ -1112,7 +1112,7 @@ rsync -ahvz username@vps-ip:~/vps-backup.tar.gz ~/local-backups/
 
 ```
 
-Extract backups and Decrypt on local machine:
+Extract and decrypt backups on local machine:
 
 ```console
 gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf -
