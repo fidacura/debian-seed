@@ -1024,61 +1024,101 @@ sudo whowatch
 
 Simple processes to backup (encrypted versions) all-things VPS data:
 
+Create backup dirs in home folder:
+
 ```console
-# create backup dirs in home folder
 mkdir -p ~/backup/{sys-configs,web-configs,security,databases,custom}
 
-# system configurations (these still need sudo to read)
+```
+
+Backup system configurations (these still need sudo to read):
+
+```console
 sudo tar -czvf ~/backup/sys-configs/etc-backup.tar.gz /etc/
 sudo tar -czvf ~/backup/sys-configs/ssh-config.tar.gz /etc/ssh/
 sudo tar -czvf ~/backup/sys-configs/user-data.tar.gz /home/
 
-# web-server configurations
+```
+
+Backup web server configurations:
+
+```console
 sudo tar -czvf ~/backup/web-configs/nginx-sites.tar.gz /etc/nginx/sites-available/ /etc/nginx/sites-enabled/
 sudo tar -czvf ~/backup/web-configs/apache-sites.tar.gz /etc/apache2/sites-available/ /etc/apache2/sites-enabled/ 2>/dev/null
 sudo tar -czvf ~/backup/web-configs/www-data.tar.gz /var/www/
 sudo tar -czvf ~/backup/web-configs/letsencrypt.tar.gz /etc/letsencrypt/
 
-# security configurations
+```
+
+Backup security configurations:
+
+```console
 sudo tar -czvf ~/backup/security/iptables-rules.tar.gz /etc/iptables/
 sudo tar -czvf ~/backup/security/fail2ban.tar.gz /etc/fail2ban/
 sudo tar -czvf ~/backup/security/crowdsec.tar.gz /etc/crowdsec/ 2>/dev/null
 
-# node.js & pm2 Configurations
+```
+
+Backup node and pm2:
+
+```console
 if command -v pm2 &> /dev/null; then
-    pm2 save
-    tar -czvf ~/backup/custom/pm2-config.tar.gz ~/.pm2/ 2>/dev/null
+pm2 save
+tar -czvf ~/backup/custom/pm2-config.tar.gz ~/.pm2/ 2>/dev/null
 fi
 
-# create a list of installed packages
+```
+
+Create a list of installed packages
+
+```console
 dpkg --get-selections > ~/backup/sys-configs/installed-packages.txt
 
-# create a snapshot of current system state
+```
+
+Create a snapshot of current system state
+
+```console
 sudo apt install -y debsums
 sudo debsums -s -c > ~/backup/sys-configs/modified-config-files.txt 2>&1
 
-# create snapshot of file permissions in /etc
+```
+
+Create snapshot of file permissions in /etc
+
+```console
 sudo find /etc -type f -exec stat -c "%a %n" {} \; > ~/backup/sys-configs/etc-permissions.txt
 
-# fix ownership of all backup files
+```
+
+Fix ownership of all backup files
+
+```console
 sudo chown -R $(whoami):$(whoami) ~/master-backup
 
-# encrypt all backups
+```
+
+Encrypt all backups
+
+```console
 cd ~
 tar -czvf vps-backup.tar.gz backup/
 gpg --symmetric --cipher-algo AES256 vps-backup.tar.gz
+
 ```
 
-rsync to copy the encrypted backups from VPS to local machine:
+rsync the encrypted backups from VPS to local machine:
 
 ```console
 rsync -ahvz username@vps-ip:~/vps-backup.tar.gz ~/local-backups/
+
 ```
 
-decrypt and extract backups on local machine:
+Extract backups and Decrypt on local machine:
 
 ```console
 gpg -d /path/to/local/encrypted_backups/vps-backup-home.tar.gz.gpg | tar xzvf -
+
 ```
 
 <br/>
